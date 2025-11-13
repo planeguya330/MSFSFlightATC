@@ -1,0 +1,24 @@
+{
+  "name": "msfs-flight-assistant",
+  "version": "1.0.0",
+  "description": "MSFS2020 SimBrief IFR Flight Plan Assistant PWA with ATC Speech Synthesis",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server",
+    "dev": "npx http-server -c-1",
+    "build": "echo 'No build step required for this PWA'",
+    "serve": "npx http-server -p 8080"
+  },
+  "keywords": [
+    "msfs2020",
+    "simbrief",
+    "pwa",
+    "flight-simulator",
+    "ifr",
+    "atc",
+    "speech-synthesis"
+  ],
+  "author": "planeguya330",
+  "license": "MIT",
+  "devDependencies": {}
+}
