@@ -6,7 +6,7 @@ class FlightAssistant {
         this.selectedVoice = null;
         this.isATCRunning = false;
         this.atcSequence = 0;
-        
+       
         this.init();
     }
 
@@ -34,10 +34,10 @@ class FlightAssistant {
     setupEventListeners() {
         // Welcome Screen
         document.getElementById('get-started-btn').addEventListener('click', () => this.goToLogin());
-        
+       
         // Login Form
         document.getElementById('login-form').addEventListener('submit', (e) => this.handleLogin(e));
-        
+       
         // Flight Screen
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
         document.getElementById('speak-all-btn').addEventListener('click', () => this.speakAll());
@@ -96,12 +96,10 @@ class FlightAssistant {
     loadVoices() {
         const voiceSelect = document.getElementById('voice-select');
         const voices = this.speechSynthesis.getVoices();
-
         if (voices.length === 0) {
             this.speechSynthesis.onvoiceschanged = () => this.loadVoices();
             return;
         }
-
         voiceSelect.innerHTML = '<option value="">Select Voice</option>';
         voices.forEach((voice, index) => {
             const option = document.createElement('option');
@@ -109,20 +107,19 @@ class FlightAssistant {
             option.textContent = `${voice.name} (${voice.lang})`;
             voiceSelect.appendChild(option);
         });
-
         // Auto-select first voice
         if (voices.length > 0) {
             this.selectedVoice = voices[0];
         }
     }
 
-    // SimBrief API Integration
+    // SimBrief API Integration with CORS Proxy
     async handleLogin(e) {
         e.preventDefault();
-        const username = document.getElementById('username').value;
+        const username = document.getElementById('username').value.trim();
         const errorDiv = document.getElementById('login-error');
 
-        if (!username.trim()) {
+        if (!username) {
             this.showError('Please enter a username or email', errorDiv);
             return;
         }
@@ -130,17 +127,27 @@ class FlightAssistant {
         this.showLoading(true);
         errorDiv.classList.remove('show');
 
+        // CORS Proxy + SimBrief API
+        const proxyUrl = 'https://corsproxy.io/?';
+        const simbriefApiUrl = `https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}&json=1`;
+        const requestUrl = proxyUrl + encodeURIComponent(simbriefApiUrl);
+
         try {
-            const response = await fetch(`https://www.simbrief.com/api/xml.fetcher.php?username=${encodeURIComponent(username)}&json=1`);
-            
+            const response = await fetch(requestUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                }
+            });
+
             if (!response.ok) {
-                throw new Error('Failed to fetch flight plan');
+                throw new Error(`HTTP ${response.status}: Failed to fetch via proxy`);
             }
 
             const data = await response.json();
 
             if (data.error) {
-                this.showError(`Error: ${data.error}`, errorDiv);
+                this.showError(`SimBrief Error: ${data.error}`, errorDiv);
                 this.showLoading(false);
                 return;
             }
@@ -148,14 +155,13 @@ class FlightAssistant {
             this.currentFlightPlan = data;
             localStorage.setItem('lastFlightPlan', JSON.stringify(data));
             localStorage.setItem('lastUsername', username);
-
             this.displayFlightPlan(data);
             this.goToFlight();
             this.showLoading(false);
 
         } catch (error) {
             console.error('Login error:', error);
-            this.showError('Failed to fetch flight plan. Check your internet connection.', errorDiv);
+            this.showError('Failed to fetch flight plan. Check username or internet.', errorDiv);
             this.showLoading(false);
         }
     }
@@ -181,21 +187,19 @@ class FlightAssistant {
         // Cruise Details
         document.getElementById('cruise-alt').textContent = `FL${cruise.altitude || 'N/A'}`;
         document.getElementById('distance').textContent = `${data.distance || 'N/A'} NM`;
-        
+       
         const flightTime = data.flight_time ? `${Math.floor(data.flight_time / 60)}h ${data.flight_time % 60}m` : 'N/A';
         document.getElementById('flight-time').textContent = flightTime;
 
         // Fuel
-        document.getElementById('trip-fuel').textContent = `${Math.round(data.fuel.contingency_fuel || 0)} LBS`;
-        document.getElementById('reserve-fuel').textContent = `${Math.round(data.fuel.reserve_fuel || 0)} LBS`;
-        document.getElementById('total-fuel').textContent = `${Math.round((data.fuel.contingency_fuel || 0) + (data.fuel.reserve_fuel || 0))} LBS`;
+        document.getElementById('trip-fuel').textContent = `${Math.round(data.fuel?.contingency_fuel || 0)} LBS`;
+        document.getElementById('reserve-fuel').textContent = `${Math.round(data.fuel?.reserve_fuel || 0)} LBS`;
+        document.getElementById('total-fuel').textContent = `${Math.round((data.fuel?.contingency_fuel || 0) + (data.fuel?.reserve_fuel || 0))} LBS`;
 
         // Route
         this.displayRoute(data);
-
         // Weather
         this.displayWeather(data);
-
         // ATC Callsigns
         this.displayATCCallsigns(data);
     }
@@ -203,28 +207,23 @@ class FlightAssistant {
     displayRoute(data) {
         const navlog = data.navlog || [];
         const routeDiv = document.getElementById('route');
-
         if (navlog.length === 0) {
             routeDiv.textContent = 'No route data available';
             return;
         }
-
         let routeText = navlog.map((fix, index) => {
             return `${index + 1}. ${fix.ident || 'FIX'} - Alt: ${fix.altitude || 'N/A'} ft`;
         }).join('\n');
-
         routeDiv.textContent = routeText;
     }
 
     displayWeather(data) {
         const weatherDiv = document.getElementById('weather-info');
         const weather = data.weather || {};
-
         if (!weather.departure && !weather.destination) {
             weatherDiv.textContent = 'No weather data available';
             return;
         }
-
         let weatherText = '';
         if (weather.departure) {
             weatherText += `DEPARTURE (${data.origin?.icao || 'N/A'}):\n`;
@@ -234,7 +233,6 @@ class FlightAssistant {
             weatherText += `DESTINATION (${data.destination?.icao || 'N/A'}):\n`;
             weatherText += `METAR: ${weather.destination?.metar || 'N/A'}\n`;
         }
-
         weatherDiv.textContent = weatherText;
     }
 
@@ -242,7 +240,6 @@ class FlightAssistant {
         const atcDiv = document.getElementById('atc-callsigns');
         const origin = data.origin || {};
         const destination = data.destination || {};
-
         let atcText = `
 DEPARTURE ATC:
 ICAO: ${origin.icao || 'N/A'}
@@ -257,20 +254,17 @@ Runway: ${destination.runway || 'N/A'}
 ALTERNATE:
 ICAO: ${data.alternate?.icao || 'N/A'}
 Name: ${data.alternate?.name || 'N/A'}
-        `;
-
-        atcDiv.textContent = atcText.trim();
+        `.trim();
+        atcDiv.textContent = atcText;
     }
 
     // Speech Synthesis
     speak(text) {
         if (!text || text === 'N/A' || text === '-') return;
-
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.voice = this.selectedVoice;
         utterance.rate = 0.9;
         utterance.pitch = 1;
-
         this.speechSynthesis.cancel();
         this.speechSynthesis.speak(utterance);
     }
@@ -288,7 +282,6 @@ Name: ${data.alternate?.name || 'N/A'}
             'reserve-fuel': `Reserve fuel ${document.getElementById('reserve-fuel').textContent}`,
             'total-fuel': `Total fuel ${document.getElementById('total-fuel').textContent}`
         };
-
         this.speak(textMap[dataType] || 'No information');
     }
 
@@ -304,7 +297,6 @@ Name: ${data.alternate?.name || 'N/A'}
             Trip fuel ${document.getElementById('trip-fuel').textContent}.
             Reserve fuel ${document.getElementById('reserve-fuel').textContent}.
         `;
-
         this.speak(flightInfo);
     }
 
@@ -329,7 +321,6 @@ Name: ${data.alternate?.name || 'N/A'}
         this.atcSequence = 0;
         document.getElementById('start-atc-btn').disabled = true;
         document.getElementById('stop-atc-btn').disabled = false;
-
         this.runATCSequence();
     }
 
@@ -342,7 +333,6 @@ Name: ${data.alternate?.name || 'N/A'}
 
     runATCSequence() {
         if (!this.isATCRunning) return;
-
         const callsign = this.currentFlightPlan?.callsign || 'CALLSIGN';
         const origin = this.currentFlightPlan?.origin?.icao || 'ORIGIN';
         const destination = this.currentFlightPlan?.destination?.icao || 'DESTINATION';
@@ -365,7 +355,6 @@ Name: ${data.alternate?.name || 'N/A'}
             const seq = sequences[this.atcSequence];
             this.addATCMessage(seq.role, seq.text);
             this.speak(seq.text);
-
             this.atcSequence++;
             setTimeout(() => this.runATCSequence(), 3000);
         } else {
@@ -415,13 +404,11 @@ Name: ${data.alternate?.name || 'N/A'}
     checkInstallPrompt() {
         let deferredPrompt;
         const installBtn = document.getElementById('install-btn');
-
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             installBtn.style.display = 'block';
         });
-
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
@@ -431,7 +418,6 @@ Name: ${data.alternate?.name || 'N/A'}
                 installBtn.style.display = 'none';
             }
         });
-
         window.addEventListener('appinstalled', () => {
             console.log('PWA was installed');
         });
