@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MSFS2020 SimBrief IFR Flight Plan Assistant with ATC Speech Synthesis">
+    <meta name="theme-color" content="#0a0e27">
+    <title>MSFS Flight Assistant</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="192x192" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230a0e27' width='192' height='192'/><path fill='%2300ff88' d='M96 30L120 90H72M96 162L72 102H120'/></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%230a0e27' width='180' height='180'/><path fill='%2300ff88' d='M90 27L112 80H68M90 153L68 100H112'/></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <div class="welcome-container">
+                <div class="logo">✈️</div>
+                <h1>MSFS Flight Assistant</h1>
+                <p>Your SimBrief IFR Flight Plan Companion</p>
+                <button id="get-started-btn" class="btn btn-primary">Get Started</button>
+                <button id="install-btn" class="btn btn-secondary" style="display: none;">Install App</button>
+            </div>
+        </div>
+
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen">
+            <div class="login-container">
+                <h2>SimBrief Login</h2>
+                <p class="subtitle">Enter your SimBrief credentials or username</p>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username/Email</label>
+                        <input type="text" id="username" placeholder="Your SimBrief username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="aircraft-id">Aircraft ID (optional)</label>
+                        <input type="text" id="aircraft-id" placeholder="e.g., A320">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Fetch Flight Plan</button>
+                </form>
+                <div id="login-error" class="error-message"></div>
+            </div>
+        </div>
+
+        <!-- Flight Plan Screen -->
+        <div id="flight-screen" class="screen">
+            <div class="header">
+                <h1 id="flight-title">Flight Plan</h1>
+                <button id="logout-btn" class="btn-icon">🔄</button>
+            </div>
+
+            <div class="controls">
+                <button id="speak-all-btn" class="btn btn-primary">🔊 Speak All</button>
+                <button id="atc-simulation-btn" class="btn btn-secondary">📻 ATC Simulation</button>
+                <select id="voice-select" class="form-control">
+                    <option value="">Select Voice</option>
+                </select>
+            </div>
+
+            <div class="flight-data">
+                <!-- Flight Info Card -->
+                <div class="card">
+                    <h3>✈️ Flight Information</h3>
+                    <div class="card-content">
+                        <div class="info-row">
+                            <span class="label">Callsign:</span>
+                            <span id="callsign" class="value">-</span>
+                            <button class="speak-btn" data-text="callsign">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Departure:</span>
+                            <span id="departure" class="value">-</span>
+                            <button class="speak-btn" data-text="departure">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Destination:</span>
+                            <span id="destination" class="value">-</span>
+                            <button class="speak-btn" data-text="destination">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Alternate:</span>
+                            <span id="alternate" class="value">-</span>
+                            <button class="speak-btn" data-text="alternate">🔊</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Route Card -->
+                <div class="card">
+                    <h3>🛣️ Route</h3>
+                    <div class="card-content">
+                        <div id="route" class="route-display">-</div>
+                        <button id="speak-route-btn" class="btn btn-secondary">🔊 Speak Route</button>
+                    </div>
+                </div>
+
+                <!-- Cruise Details Card -->
+                <div class="card">
+                    <h3>📊 Cruise Details</h3>
+                    <div class="card-content">
+                        <div class="info-row">
+                            <span class="label">Cruise Altitude:</span>
+                            <span id="cruise-alt" class="value">-</span>
+                            <button class="speak-btn" data-text="cruise-alt">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Distance:</span>
+                            <span id="distance" class="value">-</span>
+                            <button class="speak-btn" data-text="distance">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Flight Time:</span>
+                            <span id="flight-time" class="value">-</span>
+                            <button class="speak-btn" data-text="flight-time">🔊</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fuel Card -->
+                <div class="card">
+                    <h3>⛽ Fuel</h3>
+                    <div class="card-content">
+                        <div class="info-row">
+                            <span class="label">Trip Fuel:</span>
+                            <span id="trip-fuel" class="value">-</span>
+                            <button class="speak-btn" data-text="trip-fuel">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Reserve Fuel:</span>
+                            <span id="reserve-fuel" class="value">-</span>
+                            <button class="speak-btn" data-text="reserve-fuel">🔊</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="label">Total Fuel:</span>
+                            <span id="total-fuel" class="value">-</span>
+                            <button class="speak-btn" data-text="total-fuel">🔊</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Card -->
+                <div class="card">
+                    <h3>🌤️ Weather</h3>
+                    <div class="card-content">
+                        <div id="weather-info" class="weather-display">-</div>
+                        <button id="speak-weather-btn" class="btn btn-secondary">🔊 Speak Weather</button>
+                    </div>
+                </div>
+
+                <!-- ATC Callsigns Card -->
+                <div class="card">
+                    <h3>📻 ATC Callsigns</h3>
+                    <div class="card-content">
+                        <div id="atc-callsigns" class="atc-display">-</div>
+                        <button id="speak-atc-btn" class="btn btn-secondary">🔊 Speak ATC</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Fetching flight plan...</p>
+            </div>
+        </div>
+
+        <!-- ATC Simulation Screen -->
+        <div id="atc-screen" class="screen">
+            <div class="header">
+                <h1>ATC Simulation</h1>
+                <button id="close-atc-btn" class="btn-icon">✕</button>
+            </div>
+
+            <div class="atc-container">
+                <div id="atc-transcript" class="atc-transcript">
+                    <div class="atc-message system">Ready for ATC simulation. Click start to begin.</div>
+                </div>
+
+                <div class="atc-controls">
+                    <button id="start-atc-btn" class="btn btn-primary">Start Simulation</button>
+                    <button id="stop-atc-btn" class="btn btn-secondary" disabled>Stop</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
